@@ -72,8 +72,27 @@ def list_volumes(project):
 def instances():
     """Commands for instances"""
 
-@instances.command('snapshot',
-    help = "Create snapshots of all volumes")
+@instances.command('snapshot_delete',
+    help = "Delete snapshots for all volumes.")
+@click.option('--project', default=None,
+        help = "Only volumes for project(tag project:<name>)")
+def delete_snapshot(project):
+    "Delete snapshots for EC2 instances"
+
+    instances = filter_instances(project)
+
+    for i in instances:
+        for v in i.volumes.all():
+            for s in v.snapshots.all():
+                print("Deleting snapshot.." + str(s))
+                s.delete()
+
+    print("Done deleting snapshots !")
+
+    return
+
+@instances.command('snapshot_create',
+    help = "Create snapshots for all volumes")
 @click.option('--project', default=None,
         help = "Only instances for project(tag project:<name>)")
 def create_snapshot(project):
@@ -82,10 +101,17 @@ def create_snapshot(project):
     instances = filter_instances(project)
 
     for i in instances:
+        print("Stopping {0}...".format(i.id))
         i.stop()
+        i.wait_until_stopped()
         for v in i.volumes.all():
             print("Creating snapshot of {0}".format(v.id))
             v.create_snapshot(Description="Created by SnapshotAlyzer 30K")
+        print("Starting {0}...".format(i.id))
+        i.start()
+        i.wait_until_running()
+
+    print("All Done!!")
 
     return
 
